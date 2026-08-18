@@ -1,0 +1,17 @@
+{
+  "name": "JSON Form Viewer (sample)",
+  "version": 1,
+  "enabled": true,
+  "price": 19.99,
+  "description": null,
+  "tags": ["json", "form", "viewer"],
+  "owner": {
+    "id": 42,
+    "active": false,
+    "name": "Example User"
+  },
+  "items": [
+    {"id": 1, "label": "first"},
+    {"id": 2, "label": "second"}
+  ]
+}
