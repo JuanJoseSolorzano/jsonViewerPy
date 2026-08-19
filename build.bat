@@ -12,7 +12,7 @@ if errorlevel 1 goto :error
 
 echo.
 echo === Build complete ===
-echo Executable: %CD%\dist\JsonFormViewer.exe
+echo Executable: %CD%\dist\jsonviewer.exe
 goto :eof
 
 :error

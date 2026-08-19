@@ -1,4 +1,7 @@
-"""Light and dark theme definitions for the JSON Form Viewer GUI."""
+#================================================================
+#Light and dark theme definitions for the JSON Form Viewer GUI.
+# Author: Juan Jose Solorzano / deepseek-v4-pro
+#================================================================
 
 import tkinter.font as tkfont
 
@@ -43,7 +46,6 @@ DARK = {
 }
 
 THEMES = {'light': LIGHT, 'dark': DARK}
-
 
 def _section_title_font(root):
     """Pick a cross-platform font for section titles."""

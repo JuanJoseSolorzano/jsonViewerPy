@@ -25,7 +25,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='JsonFormViewer',
+    name='jsonviewer',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

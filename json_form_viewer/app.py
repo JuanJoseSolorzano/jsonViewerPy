@@ -1,9 +1,10 @@
-"""JSON Form Viewer - main application window.
-
-A standalone Tkinter/ttk desktop app that renders a JSON file as an editable
-form and saves edits back to disk. Intended to be packaged as a Windows .exe
-with PyInstaller.
-"""
+#==================================================================================
+# JSON Form Viewer - main application window.
+#
+# A standalone Tkinter/ttk desktop app that renders a JSON file as an editable
+# form and saves edits back to disk. Intended to be packaged as a Windows .exe
+# with PyInstaller.
+#==================================================================================
 
 import json
 import os
@@ -14,8 +15,7 @@ from tkinter import filedialog, messagebox, ttk
 from . import renderer, theme
 from . import __version__, __title__
 
-
-def _system_prefers_dark():
+def _system_prefers_dark()->bool:
     """Best-effort detection of the OS dark-mode preference."""
     if sys.platform == 'win32':
         return _windows_prefers_dark()
@@ -23,12 +23,10 @@ def _system_prefers_dark():
         return _linux_prefers_dark()
     return False
 
-
-def _windows_prefers_dark():
+def _windows_prefers_dark()->bool:
     """Detect Windows dark mode via the registry."""
     try:
         import ctypes
-
         key = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
         handle = ctypes.windll.advapi32.RegOpenKeyExW
         query = ctypes.windll.advapi32.RegGetValueW
@@ -41,10 +39,7 @@ def _windows_prefers_dark():
         try:
             value = ctypes.c_uint32()
             size = ctypes.c_uint32(4)
-            result = query(
-                phkey, None, "AppsUseLightTheme", 0, None,
-                ctypes.byref(value), ctypes.byref(size),
-            )
+            result = query(phkey, None, "AppsUseLightTheme", 0, None, ctypes.byref(value), ctypes.byref(size))
             if result == 0:
                 return value.value == 0
         finally:
@@ -53,25 +48,19 @@ def _windows_prefers_dark():
         return False
     return False
 
-
-def _linux_prefers_dark():
+def _linux_prefers_dark()->bool:
     """Detect GNOME dark mode via gsettings (best-effort)."""
     try:
         import subprocess
-
-        result = subprocess.run(
-            ['gsettings', 'get', 'org.gnome.desktop.interface', 'color-scheme'],
-            capture_output=True, text=True, timeout=2,
-        )
+        result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'color-scheme'],capture_output=True, text=True, timeout=2)
         return 'prefer-dark' in result.stdout.lower()
     except Exception:
         return False
 
-
 class ScrollableFrame(ttk.Frame):
     """A vertically scrollable frame hosting the form content."""
 
-    def __init__(self, master):
+    def __init__(self, master)->None:
         super().__init__(master)
         self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
         self.vsb = ttk.Scrollbar(self, orient='vertical', command=self.canvas.yview)
@@ -83,21 +72,15 @@ class ScrollableFrame(ttk.Frame):
         self.inner = ttk.Frame(self.canvas)
         self._window = self.canvas.create_window((0, 0), window=self.inner, anchor='nw')
 
-        self.inner.bind(
-            '<Configure>',
-            lambda _e: self.canvas.configure(scrollregion=self.canvas.bbox('all')),
-        )
-        self.canvas.bind(
-            '<Configure>',
-            lambda e: self.canvas.itemconfigure(self._window, width=e.width),
-        )
+        self.inner.bind( '<Configure>',lambda _e: self.canvas.configure(scrollregion=self.canvas.bbox('all')))
+        self.canvas.bind('<Configure>',lambda e: self.canvas.itemconfigure(self._window, width=e.width))
 
         # Mouse wheel scrolling (Windows <MouseWheel>; Linux <Button-4/5>).
         self.canvas.bind('<MouseWheel>', self._on_mousewheel)
         self.canvas.bind('<Button-4>', lambda _e: self.canvas.yview_scroll(-3, 'units'))
         self.canvas.bind('<Button-5>', lambda _e: self.canvas.yview_scroll(3, 'units'))
 
-    def _on_mousewheel(self, event):
+    def _on_mousewheel(self, event)->None:
         # Windows reports delta in multiples of 120 per notch; macOS/Linux
         # report small per-event deltas.
         delta = event.delta
@@ -105,12 +88,13 @@ class ScrollableFrame(ttk.Frame):
             delta = delta // 120
         self.canvas.yview_scroll(-delta * 3, 'units')
 
-    def set_bg(self, color):
+    def set_bg(self, color)->None:
         self.canvas.configure(background=color)
 
-
 class App:
-    def __init__(self, root, file_path=None):
+
+    def __init__(self, root, file_path=None)->None:
+
         self.root = root
         self.file_path = file_path
         self.current_value = None
@@ -133,22 +117,17 @@ class App:
     # UI construction
     # ------------------------------------------------------------------
 
-    def _build_ui(self):
+    def _build_ui(self)->None:
         self.root.title('%s' % __title__)
         self.root.geometry('900x700')
         self.root.minsize(500, 400)
-
         self._build_menu()
         self._build_toolbar()
 
         self.scroll = ScrollableFrame(self.root)
         self.scroll.pack(fill='both', expand=True, padx=8, pady=(0, 4))
 
-        self.empty_label = ttk.Label(
-            self.scroll.inner,
-            text='',
-            justify='left',
-        )
+        self.empty_label = ttk.Label(self.scroll.inner,text='',justify='left')
         self.empty_label.pack(anchor='nw', pady=8)
 
         self.status = ttk.Label(self.root, text='', anchor='w')
@@ -159,7 +138,6 @@ class App:
 
     def _build_menu(self):
         menubar = tk.Menu(self.root)
-
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label='Open...', accelerator='Ctrl+O', command=self.open_dialog)
         file_menu.add_command(label='Save', accelerator='Ctrl+S', command=self.save)
@@ -184,18 +162,15 @@ class App:
             ),
         )
         menubar.add_cascade(label='Help', menu=help_menu)
-
         self.root.configure(menu=menubar)
 
-    def _build_toolbar(self):
+    def _build_toolbar(self)->None:
         bar = ttk.Frame(self.root, style='Panel.TFrame')
         bar.pack(side='top', fill='x')
-
         ttk.Button(bar, text='Open', command=self.open_dialog).pack(side='left', padx=(6, 2), pady=4)
         ttk.Button(bar, text='Save', command=self.save).pack(side='left', padx=2, pady=4)
         ttk.Button(bar, text='Expand All', command=lambda: self.set_all_collapsed(False)).pack(side='left', padx=2, pady=4)
         ttk.Button(bar, text='Collapse All', command=lambda: self.set_all_collapsed(True)).pack(side='left', padx=2, pady=4)
-
         self.theme_button = ttk.Button(bar, text='Dark', command=self.toggle_theme)
         self.theme_button.pack(side='right', padx=(2, 6), pady=4)
 
@@ -203,15 +178,13 @@ class App:
     # Theme
     # ------------------------------------------------------------------
 
-    def apply_theme(self):
+    def apply_theme(self)->None:
         theme.apply_theme(self.root, self.style, self.colors)
         self.scroll.set_bg(self.colors['bg'])
-        self.theme_button.configure(
-            text='Light' if self.colors is theme.DARK else 'Dark'
-        )
+        self.theme_button.configure(text='Light' if self.colors is theme.DARK else 'Dark')
         self.empty_label.configure(foreground=self.colors['status_fg'])
 
-    def toggle_theme(self):
+    def toggle_theme(self)->None:
         self.colors = theme.LIGHT if self.colors is theme.DARK else theme.DARK
         self.apply_theme()
         # Re-render to apply type-badge colors.
@@ -222,15 +195,12 @@ class App:
     # File IO
     # ------------------------------------------------------------------
 
-    def open_dialog(self):
-        path = filedialog.askopenfilename(
-            title='Open JSON file',
-            filetypes=[('JSON files', '*.json'), ('All files', '*.*')],
-        )
+    def open_dialog(self)->None:
+        path = filedialog.askopenfilename(title='Open JSON file',filetypes=[('JSON files', '*.json'), ('All files', '*.*')])
         if path:
             self.load_file(path)
 
-    def load_file(self, path):
+    def load_file(self, path)->None:
         try:
             with open(path, 'r', encoding='utf-8') as handle:
                 text = handle.read()
@@ -253,7 +223,7 @@ class App:
         self._render(value)
         self.set_status('Loaded %s' % path)
 
-    def _render(self, value):
+    def _render(self, value)->None:
         self._clear_form()
         self.current_value = value
         if value is None:
@@ -263,7 +233,7 @@ class App:
         self.form_widget = renderer.build_form(self.scroll.inner, value, self.colors)
         self.form_widget.pack(fill='both', expand=True)
 
-    def save(self):
+    def save(self)->None:
         if self.parse_error is not None:
             self.set_status('Cannot save: JSON is invalid.', error=True)
             return
@@ -276,11 +246,7 @@ class App:
 
         path = self.file_path
         if not path:
-            path = filedialog.asksaveasfilename(
-                title='Save JSON file',
-                defaultextension='.json',
-                filetypes=[('JSON files', '*.json'), ('All files', '*.*')],
-            )
+            path = filedialog.asksaveasfilename(title='Save JSON file',defaultextension='.json',filetypes=[('JSON files', '*.json'), ('All files', '*.*')])
             if not path:
                 return
             self.file_path = path
@@ -292,20 +258,19 @@ class App:
         except OSError as err:
             self.set_status('Save failed: %s' % err, error=True)
             return
-
         self.set_status('Saved %s' % path)
 
     # ------------------------------------------------------------------
     # Form control
     # ------------------------------------------------------------------
 
-    def set_all_collapsed(self, collapsed):
+    def set_all_collapsed(self, collapsed)->None:
         if self.form_widget is None:
             return
         for widget in renderer.walk_collapsibles(self.form_widget):
             widget.set_expanded(not collapsed)
 
-    def _clear_form(self):
+    def _clear_form(self)->None:
         if self.form_widget is not None:
             self.form_widget.destroy()
             self.form_widget = None
@@ -321,23 +286,18 @@ class App:
     def set_status(self, message, error=False):
         if self._status_after_id is not None:
             self.root.after_cancel(self._status_after_id)
-        self.status.configure(
-            text=message,
-            foreground=self.colors['error'] if error else self.colors['status_fg'],
-        )
+        self.status.configure(text=message,foreground=self.colors['error'] if error else self.colors['status_fg'])
         self._status_after_id = self.root.after(4000, self._clear_status)
 
     def _clear_status(self):
         self.status.configure(text='')
         self._status_after_id = None
 
-
 def main():
     root = tk.Tk()
     path = sys.argv[1] if len(sys.argv) > 1 else None
     App(root, file_path=path)
     root.mainloop()
-
 
 if __name__ == '__main__':
     main()

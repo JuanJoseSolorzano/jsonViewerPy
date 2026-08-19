@@ -1,7 +1,7 @@
-"""Entry point for the JSON Form Viewer desktop app.
-
-Run directly with:  python main.py [file.json]
-"""
+#===================================================
+# Entry point for the application
+# Author: Juan Jose Solorzano / deepseek-v4-pro
+#===================================================
 
 from json_form_viewer.app import main
 
