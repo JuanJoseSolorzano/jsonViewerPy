@@ -11,9 +11,96 @@ import os
 import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-
 from . import renderer, theme
 from . import __version__, __title__
+
+def sanitize_jsonc(text: str)->tuple[str,bool]:
+    """Convert JSONC (JSON with // or /* */ comments and trailing commas)
+    into strict JSON while preserving string literals.
+
+    Returns a (sanitized_text, modified) tuple. The second element is True if
+    any comment or trailing comma was removed.
+    """
+    output = []
+    modified = False
+    in_string = False
+    line_comment = False
+    block_comment = False
+    i = 0
+    n = len(text)
+
+    while i < n:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < n else ''
+
+        if line_comment:
+            if ch == '\n':
+                line_comment = False
+                output.append(ch)
+            else:
+                modified = True
+            i += 1
+            continue
+
+        if block_comment:
+            if ch == '*' and nxt == '/':
+                block_comment = False
+                output.append(' ')
+                modified = True
+                i += 2
+                continue
+            if ch == '\n':
+                output.append(ch)
+            else:
+                modified = True
+            i += 1
+            continue
+
+        if in_string:
+            output.append(ch)
+            if ch == '\\' and i + 1 < n:
+                output.append(text[i + 1])
+                i += 2
+                continue
+            if ch == '"':
+                in_string = False
+            i += 1
+            continue
+
+        if ch == '"':
+            in_string = True
+            output.append(ch)
+            i += 1
+            continue
+
+        if ch == '/' and nxt == '/':
+            line_comment = True
+            output.append(' ')
+            modified = True
+            i += 2
+            continue
+
+        if ch == '/' and nxt == '*':
+            block_comment = True
+            output.append(' ')
+            modified = True
+            i += 2
+            continue
+
+        # Trailing comma immediately before a closing bracket or brace.
+        if ch == ',':
+            j = i + 1
+            while j < n and text[j] in ' \t\r\n':
+                j += 1
+            if j < n and text[j] in ']}':
+                modified = True
+                i += 1
+                continue
+
+        output.append(ch)
+        i += 1
+
+    return ''.join(output), modified
 
 def _system_prefers_dark()->bool:
     """Best-effort detection of the OS dark-mode preference."""
@@ -101,6 +188,7 @@ class App:
         self.parse_error = None
         self.form_widget = None
         self._status_after_id = None
+        self.sanitized_jsonc = False
 
         self.colors = theme.DARK if _system_prefers_dark() else theme.LIGHT
         self.style = ttk.Style(root)
@@ -211,17 +299,30 @@ class App:
         self.file_path = path
         self.root.title('%s - %s' % (__title__, os.path.basename(path)))
 
-        try:
-            value = json.loads(text) if text.strip() else None
-        except json.JSONDecodeError as err:
-            self.parse_error = err
-            self.current_value = None
-            self._show_empty('Invalid JSON:\n%s' % err)
-            return
+        if not text.strip():
+            value = None
+            self.sanitized_jsonc = False
+        else:
+            try:
+                value = json.loads(text)
+                self.sanitized_jsonc = False
+            except json.JSONDecodeError:
+                sanitized, modified = sanitize_jsonc(text)
+                try:
+                    value = json.loads(sanitized)
+                    self.sanitized_jsonc = modified
+                except json.JSONDecodeError as err:
+                    self.parse_error = err
+                    self.current_value = None
+                    self._show_empty('Invalid JSON:\n%s' % err)
+                    return
 
         self.parse_error = None
         self._render(value)
-        self.set_status('Loaded %s' % path)
+        if self.sanitized_jsonc:
+            self.set_status('Loaded %s (JSONC: comments/trailing commas removed for editing)' % path)
+        else:
+            self.set_status('Loaded %s' % path)
 
     def _render(self, value)->None:
         self._clear_form()
@@ -258,7 +359,10 @@ class App:
         except OSError as err:
             self.set_status('Save failed: %s' % err, error=True)
             return
-        self.set_status('Saved %s' % path)
+        if self.sanitized_jsonc:
+            self.set_status('Saved %s (comments/trailing commas removed)' % path)
+        else:
+            self.set_status('Saved %s' % path)
 
     # ------------------------------------------------------------------
     # Form control
